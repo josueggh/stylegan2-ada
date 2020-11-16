@@ -10,6 +10,7 @@
 
 import os
 import glob
+import random
 import numpy as np
 import tensorflow as tf
 import dnnlib.tflib as tflib
@@ -28,10 +29,10 @@ class TFRecordDataset:
         mirror_augment  = False,    # Apply mirror augment?
         repeat          = True,     # Repeat dataset indefinitely?
         shuffle         = True,     # Shuffle images?
-        shuffle_mb      = 4096,     # Shuffle data within specified window (megabytes), 0 = disable shuffling.
-        prefetch_mb     = 2048,     # Amount of data to prefetch (megabytes), 0 = disable prefetching.
-        buffer_mb       = 256,      # Read buffer size (megabytes).
-        num_threads     = 2,        # Number of concurrent threads.
+        shuffle_mb      = 81920,    # Shuffle data within specified window (megabytes), 0 = disable shuffling.
+        prefetch_mb     = 8192,     # Amount of data to prefetch (megabytes), 0 = disable prefetching.
+        buffer_mb       = 2048,      # Read buffer size (megabytes).
+        num_threads     = 40,       # Number of concurrent threads.
         _is_validation  = False,
 ):
         self.tfrecord_dir       = tfrecord_dir
@@ -59,30 +60,33 @@ class TFRecordDataset:
         self._cur_lod           = -1
 
         # List files in the dataset directory.
-        assert os.path.isdir(self.tfrecord_dir)
-        all_files = sorted(glob.glob(os.path.join(self.tfrecord_dir, '*')))
-        self.has_validation_set = (self._max_validation > 0) and any(os.path.basename(f).startswith('validation-') for f in all_files)
-        all_files = [f for f in all_files if os.path.basename(f).startswith('validation-') == _is_validation]
+        # assert os.path.isdir(self.tfrecord_dir)
+        # all_files = sorted(glob.glob(os.path.join(self.tfrecord_dir, '*')))
+        # self.has_validation_set = (self._max_validation > 0) and any(os.path.basename(f).startswith('validation-') for f in all_files)
+        # all_files = [f for f in all_files if os.path.basename(f).startswith('validation-') == _is_validation]
 
         # Inspect tfrecords files.
-        tfr_files = [f for f in all_files if f.endswith('.tfrecords')]
+        tfr_files = [sorted(glob.glob(os.path.join(_dir, '*.tfrecords'))) for _dir in self.tfrecord_dir]
         assert len(tfr_files) >= 1
         tfr_shapes = []
-        for tfr_file in tfr_files:
-            tfr_opt = tf.python_io.TFRecordOptions(tf.python_io.TFRecordCompressionType.NONE)
-            for record in tf.python_io.tf_record_iterator(tfr_file, tfr_opt):
-                tfr_shapes.append(self.parse_tfrecord_np(record).shape)
-                break
+        for dataset in tfr_files:
+            for tfr_file in dataset:
+                tfr_opt = tf.python_io.TFRecordOptions(tf.python_io.TFRecordCompressionType.NONE)
+                for record in tf.python_io.tf_record_iterator(tfr_file, tfr_opt):
+                    shape = self.parse_tfrecord_np(record).shape
+                    if shape not in tfr_shapes:
+                        tfr_shapes.append(shape)
+                    break
 
         # Autodetect label filename.
-        if self.label_file is None:
-            guess = [f for f in all_files if f.endswith('.labels')]
-            if len(guess):
-                self.label_file = guess[0]
-        elif not os.path.isfile(self.label_file):
-            guess = os.path.join(self.tfrecord_dir, self.label_file)
-            if os.path.isfile(guess):
-                self.label_file = guess
+        # if self.label_file is None:
+        #     guess = [f for f in all_files if f.endswith('.labels')]
+        #     if len(guess):
+        #         self.label_file = guess[0]
+        # elif not os.path.isfile(self.label_file):
+        #     guess = os.path.join(self.tfrecord_dir, self.label_file)
+        #     if os.path.isfile(guess):
+        #         self.label_file = guess
 
         # Determine shape and resolution.
         max_shape = max(tfr_shapes, key=np.prod)
@@ -94,6 +98,20 @@ class TFRecordDataset:
         assert all(shape[1] == shape[2] for shape in tfr_shapes)
         assert all(shape[1] == self.resolution // (2**lod) for shape, lod in zip(tfr_shapes, tfr_lods))
         assert all(lod in tfr_lods for lod in range(self.resolution_log2 - 1))
+
+        # Search for additional TFRecords
+        for j, dataset in enumerate(tfr_files):
+            for i, tfr_file in enumerate(dataset):
+                tfr_dir = tfr_file.split('.')[0]
+                if os.path.isdir(tfr_dir):
+                    new_files = [os.path.join(tfr_dir, d) for d in os.listdir(tfr_dir)]
+                    tfr_files[j][i] = [tfr_file, *new_files]
+
+        tfr_files = list(zip(*tfr_files))
+        for i, lod in enumerate(tfr_files):
+            lod = list(lod)
+            random.shuffle(lod)
+            tfr_files[i] = lod
 
         # Load labels.
         assert max_label_size == 'full' or max_label_size >= 0
@@ -226,7 +244,7 @@ def load_dataset(path=None, resolution=None, max_images=None, max_label_size=0, 
     _ = seed
     assert os.path.isdir(path)
     return TFRecordDataset(
-        tfrecord_dir=path,
+        tfrecord_dir=[path],
         resolution=resolution, max_images=max_images, max_label_size=max_label_size,
         mirror_augment=mirror_augment, repeat=repeat, shuffle=shuffle)
 
