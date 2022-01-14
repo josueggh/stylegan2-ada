@@ -29,9 +29,12 @@ class TFRecordDataset:
         mirror_augment  = False,    # Apply mirror augment?
         repeat          = True,     # Repeat dataset indefinitely?
         shuffle         = True,     # Shuffle images?
-        shuffle_mb      = 81920,    # Shuffle data within specified window (megabytes), 0 = disable shuffling.
-        prefetch_mb     = 8192,     # Amount of data to prefetch (megabytes), 0 = disable prefetching.
-        buffer_mb       = 2048,      # Read buffer size (megabytes).
+#         shuffle_mb      = 81920,    # Shuffle data within specified window (megabytes), 0 = disable shuffling.
+#         prefetch_mb     = 8192,     # Amount of data to prefetch (megabytes), 0 = disable prefetching.
+#         buffer_mb       = 2048,      # Read buffer size (megabytes).
+        shuffle_mb      = 20480,    # Shuffle data within specified window (megabytes), 0 = disable shuffling.
+        prefetch_mb     = 1024,     # Amount of data to prefetch (megabytes), 0 = disable prefetching.
+        buffer_mb       = 512,      # Read buffer size (megabytes).
         num_threads     = 40,       # Number of concurrent threads.
         _is_validation  = False,
 ):

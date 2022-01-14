@@ -15,3 +15,8 @@ RUN pip install h5py==2.9.0
 RUN pip install imageio==2.9.0
 RUN pip install imageio-ffmpeg==0.4.2
 RUN pip install tqdm==4.49.0
+RUN pip install ray
+RUN pip install bounded_pool_executor
+RUN pip install opencv-python
+RUN pip install tifffile
+RUN pip install jupyter

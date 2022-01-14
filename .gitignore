@@ -1,1 +1,9 @@
 __pycache__/
+results
+.cache
+cache
+.ipynb_checkpoints/
+.ipython/
+.keras/
+.local/
+.python-version

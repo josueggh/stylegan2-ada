@@ -44,6 +44,7 @@ def setup_training_options(
 
     # Base config.
     cfg        = None, # Base config: 'auto' (default), 'stylegan2', 'paper256', 'paper512', 'paper1024', 'cifar', 'cifarbaseline'
+    lrate      = None,
     gamma      = None, # Override R1 gamma: <float>, default = depends on cfg
     randomize_noise = None,
     kimg       = None, # Override training duration: <int>, default = depends on cfg
@@ -87,7 +88,7 @@ def setup_training_options(
     assert isinstance(snap, int)
     if snap < 1:
         raise UserError('--snap must be at least 1')
-    args.image_snapshot_ticks = snap
+    args.image_snapshot_ticks = 10
     args.network_snapshot_ticks = snap
 
     # -----------------------------------
@@ -182,6 +183,8 @@ def setup_training_options(
         spec.gamma = 0.0002 * (res ** 2) / spec.mb # heuristic formula
         spec.ema = spec.mb * 10 / 32
 
+        # custom override
+    
     args.total_kimg = spec.kimg
     args.minibatch_size = spec.mb
     args.minibatch_gpu = spec.mb // spec.ref_gpus
@@ -207,6 +210,12 @@ def setup_training_options(
             raise UserError('--gamma must be non-negative')
         desc += f'-gamma{gamma:g}'
         args.loss_args.r1_gamma = gamma
+
+    if lrate is not None:
+        assert isinstance(gamma, float)
+        desc += f'-lrate{lrate:g}'
+        args.G_opt_args.learning_rate = args.D_opt_args.learning_rate = lrate
+
 
     if kimg is not None:
         assert isinstance(kimg, int)
@@ -538,6 +547,7 @@ def main():
 
     group = parser.add_argument_group('base config')
     group.add_argument('--cfg',   help='Base config (default: auto)', choices=['auto', 'stylegan2', 'paper256', 'paper512', 'paper1024', 'cifar', 'cifarbaseline'])
+    group.add_argument('--lrate', help='Override learning rate', type=float, metavar='FLOAT')
     group.add_argument('--gamma', help='Override R1 gamma', type=float, metavar='FLOAT')
     group.add_argument('--randomize_noise', dest='randomize_noise', action='store_true', help='randomize noise inputs every time (non-deterministic)')
     group.add_argument('--no-randomize-noise', dest='randomize_noise', action='store_false', help='read noise inputs from variables')
